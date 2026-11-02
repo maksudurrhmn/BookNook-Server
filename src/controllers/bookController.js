@@ -161,4 +161,125 @@ const addBook = async (req, res) => {
   }
 };
 
-export { getAllBooks, getBookById, addBook };
+// PATCH /books/:id
+const updateBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid book ID',
+      });
+    }
+
+    const { title, author, category, image, description, totalCopies } = req.body;
+
+    const allowedCategories = ['Fiction', 'Science', 'History', 'Kids', 'Others'];
+
+    // Validate category if provided
+    if (category && !allowedCategories.includes(category)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid book category',
+      });
+    }
+
+    // Prepare updated fields
+    const updatedData = {};
+
+    if (title !== undefined) updatedData.title = title.trim();
+    if (author !== undefined) updatedData.author = author.trim();
+    if (category !== undefined) updatedData.category = category;
+    if (image !== undefined) updatedData.image = image.trim();
+    if (description !== undefined) updatedData.description = description.trim();
+
+    if (totalCopies !== undefined) {
+      const copies = Number(totalCopies);
+
+      if (!Number.isInteger(copies) || copies < 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Total copies must be a positive integer',
+        });
+      }
+
+      updatedData.totalCopies = copies;
+    }
+
+    updatedData.updatedAt = new Date();
+
+    const db = getDB();
+
+    const result = await db.collection('books').updateOne(
+      {
+        _id: new ObjectId(id),
+        'addedBy.userId': String(req.user.id),
+      },
+      {
+        $set: updatedData,
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found or you are not authorized to update it',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Book updated successfully',
+    });
+  } catch (error) {
+    console.error('Update book error:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update book',
+    });
+  }
+};
+
+// DELETE /books/:id
+const deleteBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid book ID',
+      });
+    }
+
+    const db = getDB();
+
+    const result = await db.collection('books').deleteOne({
+      _id: new ObjectId(id),
+      'addedBy.userId': String(req.user.id),
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found or you are not authorized to delete it',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Book deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete book error:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete book',
+    });
+  }
+};
+
+export { getAllBooks, getBookById, addBook, updateBook, deleteBook };
