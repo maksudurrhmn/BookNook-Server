@@ -12,7 +12,18 @@ import verifyToken from '../middleware/verifyToken.js';
 const router = express.Router();
 
 // Public routes
-router.get('/', getAllBooks);
+router.get(
+  '/',
+  (req, res, next) => {
+    if (req.query.mine === 'true') {
+      return verifyToken(req, res, next);
+    }
+
+    next();
+  },
+  getAllBooks
+);
+// Public route to get a book by ID
 router.get('/:id', getBookById);
 
 // Protected routes

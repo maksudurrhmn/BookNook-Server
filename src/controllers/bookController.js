@@ -7,8 +7,16 @@ const getAllBooks = async (req, res) => {
     const db = getDB();
 
     const limit = Number.parseInt(req.query.limit, 10);
+    const mine = req.query.mine === 'true';
 
-    let query = db.collection('books').find().sort({ createdAt: -1 });
+    // Only return the authenticated user's books when mine=true.
+    const filter = mine ? { 'addedBy.userId': String(req.user.id) } : {};
+
+    let query = db
+      .collection('books')
+      .find(filter)
+      .project({ 'addedBy.email': 0 })
+      .sort({ createdAt: -1 });
 
     if (Number.isInteger(limit) && limit > 0) {
       query = query.limit(Math.min(limit, 50));
