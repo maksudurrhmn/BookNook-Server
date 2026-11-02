@@ -3,7 +3,6 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { connectDB } from './config/db.js';
-import { initializeCollections } from './config/collections.js';
 import bookRoutes from './routes/book.routes.js';
 
 const app = express();
@@ -26,7 +25,6 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
-  await initializeCollections();
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

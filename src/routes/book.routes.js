@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/', getAllBooks);
 
 // Protected routes
-router.get('/:id', verifyToken, getBookById);
+router.get('/:id', getBookById);
 router.post('/', verifyToken, addBook);
 
 export default router;

@@ -1,19 +1,10 @@
-import { MongoClient, ServerApiVersion } from 'mongodb';
+import { MongoClient } from 'mongodb';
 
-let client;
 let db;
 
 const connectDB = async () => {
   try {
-    const uri = process.env.MONGODB_URI;
-
-    client = new MongoClient(uri, {
-      serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-      },
-    });
+    const client = new MongoClient(process.env.MONGODB_URI);
 
     await client.connect();
 
@@ -22,6 +13,8 @@ const connectDB = async () => {
     await db.command({ ping: 1 });
 
     console.log('MongoDB connected successfully!');
+
+    return db;
   } catch (error) {
     console.error('MongoDB connection failed:', error.message);
     process.exit(1);
@@ -30,7 +23,7 @@ const connectDB = async () => {
 
 const getDB = () => {
   if (!db) {
-    throw new Error('Database is not connected yet!');
+    throw new Error('Database is not connected!');
   }
 
   return db;
