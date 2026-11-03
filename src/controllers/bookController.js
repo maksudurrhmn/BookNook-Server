@@ -185,15 +185,13 @@ const updateBook = async (req, res) => {
 
     const allowedCategories = ['Fiction', 'Science', 'History', 'Kids', 'Others'];
 
-    // Validate category if provided
-    if (category && !allowedCategories.includes(category)) {
+    if (category !== undefined && !allowedCategories.includes(category)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid book category',
       });
     }
 
-    // Prepare updated fields
     const updatedData = {};
 
     if (title !== undefined) updatedData.title = title.trim();
@@ -202,22 +200,48 @@ const updateBook = async (req, res) => {
     if (image !== undefined) updatedData.image = image.trim();
     if (description !== undefined) updatedData.description = description.trim();
 
-    if (totalCopies !== undefined) {
-      const copies = Number(totalCopies);
+    let newTotalCopies;
 
-      if (!Number.isInteger(copies) || copies < 1) {
+    if (totalCopies !== undefined) {
+      newTotalCopies = Number(totalCopies);
+
+      if (!Number.isInteger(newTotalCopies) || newTotalCopies < 1) {
         return res.status(400).json({
           success: false,
           message: 'Total copies must be a positive integer',
         });
       }
+    }
 
-      updatedData.totalCopies = copies;
+    const db = getDB();
+
+    const existingBook = await db.collection('books').findOne({
+      _id: new ObjectId(id),
+      'addedBy.userId': String(req.user.id),
+    });
+
+    if (!existingBook) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found or you are not authorized to update it',
+      });
+    }
+
+    if (newTotalCopies !== undefined) {
+      const borrowedCopies = existingBook.totalCopies - existingBook.availableCopies;
+
+      if (newTotalCopies < borrowedCopies) {
+        return res.status(400).json({
+          success: false,
+          message: `At least ${borrowedCopies} copies are currently borrowed`,
+        });
+      }
+
+      updatedData.totalCopies = newTotalCopies;
+      updatedData.availableCopies = newTotalCopies - borrowedCopies;
     }
 
     updatedData.updatedAt = new Date();
-
-    const db = getDB();
 
     const result = await db.collection('books').updateOne(
       {
@@ -236,14 +260,14 @@ const updateBook = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Book updated successfully',
     });
   } catch (error) {
     console.error('Update book error:', error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to update book',
     });
@@ -263,27 +287,45 @@ const deleteBook = async (req, res) => {
     }
 
     const db = getDB();
+    const bookId = new ObjectId(id);
 
-    const result = await db.collection('books').deleteOne({
-      _id: new ObjectId(id),
+    const book = await db.collection('books').findOne({
+      _id: bookId,
       'addedBy.userId': String(req.user.id),
     });
 
-    if (result.deletedCount === 0) {
+    if (!book) {
       return res.status(404).json({
         success: false,
         message: 'Book not found or you are not authorized to delete it',
       });
     }
 
-    res.status(200).json({
+    const activeBorrow = await db.collection('borrows').findOne({
+      bookId,
+      status: 'active',
+    });
+
+    if (activeBorrow) {
+      return res.status(409).json({
+        success: false,
+        message: 'This book cannot be deleted while copies are borrowed',
+      });
+    }
+
+    await db.collection('books').deleteOne({
+      _id: bookId,
+      'addedBy.userId': String(req.user.id),
+    });
+
+    return res.status(200).json({
       success: true,
       message: 'Book deleted successfully',
     });
   } catch (error) {
     console.error('Delete book error:', error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to delete book',
     });
