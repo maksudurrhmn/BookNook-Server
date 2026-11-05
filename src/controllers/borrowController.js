@@ -6,7 +6,7 @@ const borrowBook = async (req, res) => {
   try {
     const { bookId } = req.body;
 
-    if (!bookId || !ObjectId.isValid(bookId)) {
+    if (typeof bookId !== 'string' || !ObjectId.isValid(bookId)) {
       return res.status(400).json({
         success: false,
         message: 'A valid book ID is required',

@@ -41,34 +41,42 @@ const getAllBooks = async (req, res) => {
 
 // GET /books/:id
 const getBookById = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  // Validate MongoDB ObjectId
-  if (!ObjectId.isValid(id)) {
-    return res.status(400).json({
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid book ID',
+      });
+    }
+
+    const db = getDB();
+
+    const book = await db
+      .collection('books')
+      .findOne({ _id: new ObjectId(id) }, { projection: { 'addedBy.email': 0 } });
+
+    if (!book) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Book retrieved successfully',
+      data: book,
+    });
+  } catch (error) {
+    console.error('Get book by ID error:', error);
+
+    return res.status(500).json({
       success: false,
-      message: 'Invalid book ID',
+      message: 'Failed to retrieve book',
     });
   }
-
-  const db = getDB();
-
-  const book = await db.collection('books').findOne({
-    _id: new ObjectId(id),
-  });
-
-  if (!book) {
-    return res.status(404).json({
-      success: false,
-      message: 'Book not found',
-    });
-  }
-
-  res.status(200).json({
-    success: true,
-    message: 'Book retrieved successfully',
-    data: book,
-  });
 };
 
 // POST /books
@@ -76,8 +84,12 @@ const addBook = async (req, res) => {
   try {
     const { title, author, category, image, description, totalCopies } = req.body;
 
-    // Validate required fields
-    if (!title || !author || !category || !image || !description || totalCopies === undefined) {
+    const requiredFields = [title, author, category, image, description];
+
+    if (
+      requiredFields.some((field) => typeof field !== 'string' || !field.trim()) ||
+      totalCopies === undefined
+    ) {
       return res.status(400).json({
         success: false,
         message: 'All fields are required',
@@ -119,7 +131,7 @@ const addBook = async (req, res) => {
     }
 
     // Get authenticated user information
-    // req.user will be provided by our JWT middleware.
+    // req.user will be provided by JWT middleware.
     if (!req.user?.id || !req.user?.email) {
       return res.status(401).json({
         success: false,
@@ -194,11 +206,23 @@ const updateBook = async (req, res) => {
 
     const updatedData = {};
 
-    if (title !== undefined) updatedData.title = title.trim();
-    if (author !== undefined) updatedData.author = author.trim();
-    if (category !== undefined) updatedData.category = category;
-    if (image !== undefined) updatedData.image = image.trim();
-    if (description !== undefined) updatedData.description = description.trim();
+    const textFields = {
+      title,
+      author,
+      image,
+      description,
+    };
+
+    for (const [field, value] of Object.entries(textFields)) {
+      if (value !== undefined) {
+        if (typeof value !== 'string' || !value.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: `${field} must be a non-empty string`,
+          });
+        }
+      }
+    }
 
     let newTotalCopies;
 
