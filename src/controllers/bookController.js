@@ -197,15 +197,9 @@ const updateBook = async (req, res) => {
 
     const allowedCategories = ['Fiction', 'Science', 'History', 'Kids', 'Others'];
 
-    if (category !== undefined && !allowedCategories.includes(category)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid book category',
-      });
-    }
-
     const updatedData = {};
 
+    // Validate and update text fields
     const textFields = {
       title,
       author,
@@ -221,9 +215,24 @@ const updateBook = async (req, res) => {
             message: `${field} must be a non-empty string`,
           });
         }
+
+        updatedData[field] = value.trim();
       }
     }
 
+    // Validate and update category
+    if (category !== undefined) {
+      if (!allowedCategories.includes(category)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid book category',
+        });
+      }
+
+      updatedData.category = category;
+    }
+
+    // Validate total copies
     let newTotalCopies;
 
     if (totalCopies !== undefined) {
@@ -239,6 +248,7 @@ const updateBook = async (req, res) => {
 
     const db = getDB();
 
+    // Find book owned by authenticated user
     const existingBook = await db.collection('books').findOne({
       _id: new ObjectId(id),
       'addedBy.userId': String(req.user.id),
@@ -251,6 +261,7 @@ const updateBook = async (req, res) => {
       });
     }
 
+    // Update total and available copies while preserving borrowed copies
     if (newTotalCopies !== undefined) {
       const borrowedCopies = existingBook.totalCopies - existingBook.availableCopies;
 
