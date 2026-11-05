@@ -22,6 +22,13 @@ app.get('/', (req, res) => {
   res.send('BookNook API is running!');
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'BookNook API is healthy!',
+  });
+});
+
 app.use('/books', bookRoutes);
 app.use('/borrows', borrowRoutes);
 

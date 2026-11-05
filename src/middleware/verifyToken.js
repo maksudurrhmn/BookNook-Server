@@ -20,8 +20,17 @@ const verifyToken = async (req, res, next) => {
       audience: process.env.AUTH_BASE_URL,
     });
 
+    const userId = payload.id || payload.sub;
+
+    if (!userId || !payload.email) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized: Invalid user information',
+      });
+    }
+
     req.user = {
-      id: payload.id || payload.sub,
+      id: userId,
       email: payload.email,
       name: payload.name || '',
     };
